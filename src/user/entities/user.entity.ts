@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
+import { Conversation } from "@prisma/client";
 
 export class User {
     
@@ -90,6 +91,14 @@ export class User {
         example: "2022-01-01T00:00:00.000Z",
     })    
     updatedAt?: Date; 
+
+    
+    @ApiProperty({
+        description: "List of user's conversations",
+        required: false,
+        nullable: true,
+    })
+    conversations?: Conversation[];
     
 }
 
