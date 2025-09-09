@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  Delete,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -46,5 +47,32 @@ export class ChatController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.chatService.getMessagesByConversation(user, id);
+  }
+
+  @Delete('conversations/:id')
+  @ApiOperation({ summary: 'Xóa một cuộc trò chuyện' })
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  deleteConversation(
+    @GetUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.chatService.deleteConversation(user, id);
+  }
+
+  @Delete('messages/:id')
+  @ApiOperation({ summary: 'Xóa một tin nhắn' })
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  deleteMessage(
+    @GetUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.chatService.deleteMessage(user, id);
+  }
+
+  @Delete('conversations')
+  @ApiOperation({ summary: 'Xóa tất cả cuộc trò chuyện của user' })
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  deleteAllConversations(@GetUser() user: User) {
+    return this.chatService.deleteAllConversations(user);
   }
 }

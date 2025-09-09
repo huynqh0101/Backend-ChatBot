@@ -110,4 +110,58 @@ export class ChatService {
 
     return aiMessage;
   }
+
+  async deleteConversation(user: User, conversationId: string) {
+    this.logger.log(`Deleting conversation ${conversationId} for user: ${user.email}`);
+
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        userId: user.id,
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    await this.prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+
+    return { message: 'Conversation deleted successfully' };
+  }
+
+  async deleteMessage(user: User, messageId: string) {
+    this.logger.log(`Deleting message ${messageId} for user: ${user.email}`);
+
+    const message = await this.prisma.message.findFirst({
+      where: {
+        id: messageId,
+        conversation: {
+          userId: user.id,
+        },
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    await this.prisma.message.delete({
+      where: { id: messageId },
+    });
+
+    return { message: 'Message deleted successfully' };
+  }
+
+  async deleteAllConversations(user: User) {
+    this.logger.log(`Deleting all conversations for user: ${user.email}`);
+
+    await this.prisma.conversation.deleteMany({
+      where: { userId: user.id },
+    });
+
+    return { message: 'All conversations deleted successfully' };
+  }
 }
