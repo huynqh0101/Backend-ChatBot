@@ -18,7 +18,7 @@ export class GetServerListeningResponse {
   })
   message: string;
 }
-@ApiTags('API-Server-Listening')    //Swagger
+@ApiTags('API-Server-Listening')
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
