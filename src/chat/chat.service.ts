@@ -108,7 +108,15 @@ export class ChatService {
       data: { updatedAt: new Date() },
     });
 
-    return aiMessage;
+    // Sau khi tạo xong
+    const messages = await this.prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    return {
+      conversation,
+      messages,
+    };
   }
 
   async deleteConversation(user: User, conversationId: string) {
