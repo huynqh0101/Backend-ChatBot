@@ -9,18 +9,25 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { User } from 'src/user/entities/user.entity';
 import { Conversation } from '@prisma/client';
-// import { HttpService } from '@nestjs/axios'; // Sẽ dùng khi kết nối AI Service
-// import { ConfigService } from '@nestjs/config'; // Sẽ dùng khi kết nối AI Service
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger('ChatService');
+  private readonly aiServiceUrl: string;
 
   constructor(
     private prisma: PrismaService,
-    // private readonly httpService: HttpService, // Sẽ dùng khi kết nối AI Service
-    // private configService: ConfigService, // Sẽ dùng khi kết nối AI Service
-  ) {}
+    private readonly httpService: HttpService, // Inject HttpService
+    private configService: ConfigService, // Inject ConfigService
+  ) {
+    this.aiServiceUrl = this.configService.get('AI_SERVICE_URL');
+    if (!this.aiServiceUrl) {
+      this.logger.error('AI_SERVICE_URL is not defined in .env file');
+    }
+  }
 
   async getConversations(user: User) {
     this.logger.log(`Fetching conversations for user: ${user.email}`);
@@ -84,37 +91,45 @@ export class ChatService {
       },
     });
 
-    // --- Tạm thời trả về tin nhắn giả lập của AI ---
-    // TODO: Thay thế phần này bằng logic gọi AI Service (Backend #2)
-    // const aiResponse = await this.callAIService(content);
-    const mockAiResponse = {
-      answer: `Đây là câu trả lời giả lập cho câu hỏi: "${content}"`,
-      sources: [{ document: 'mock.pdf', content: 'Đây là nội dung trích dẫn.' }],
-    };
-    // ----------------------------------------------------
+    // --- Gọi API đến Backend AI ---
+    let aiResponse;
+    try {
+      this.logger.log(`Sending request to AI Service: ${this.aiServiceUrl}`);
+      const response = await firstValueFrom(
+        this.httpService.post(this.aiServiceUrl, {
+          question: content,
+        }),
+      );
+      aiResponse = response.data;
+    } catch (error) {
+      this.logger.error(`Error calling AI service: ${error.message}`, error.stack);
+      throw new ServiceUnavailableException('Dịch vụ AI hiện không khả dụng.');
+    }
+    // -----------------------------
 
-    const aiMessage = await this.prisma.message.create({
+    await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: 'assistant',
-        content: mockAiResponse.answer,
-        metadata: mockAiResponse.sources as any,
+        content: aiResponse.answer,
+        metadata: aiResponse.sources as any,
       },
     });
 
     // Cập nhật thời gian cho cuộc trò chuyện
-    await this.prisma.conversation.update({
+    const updatedConversation = await this.prisma.conversation.update({
       where: { id: conversation.id },
       data: { updatedAt: new Date() },
     });
 
-    // Sau khi tạo xong
+    // Lấy tất cả tin nhắn để trả về cho client
     const messages = await this.prisma.message.findMany({
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
+
     return {
-      conversation,
+      conversation: updatedConversation,
       messages,
     };
   }
@@ -133,6 +148,7 @@ export class ChatService {
       throw new NotFoundException('Conversation not found');
     }
 
+    // onDelete: Cascade trong schema sẽ tự động xóa các message liên quan
     await this.prisma.conversation.delete({
       where: { id: conversationId },
     });
@@ -166,10 +182,10 @@ export class ChatService {
   async deleteAllConversations(user: User) {
     this.logger.log(`Deleting all conversations for user: ${user.email}`);
 
-    await this.prisma.conversation.deleteMany({
+    const result = await this.prisma.conversation.deleteMany({
       where: { userId: user.id },
     });
 
-    return { message: 'All conversations deleted successfully' };
+    return { message: `Deleted ${result.count} conversations successfully` };
   }
 }
