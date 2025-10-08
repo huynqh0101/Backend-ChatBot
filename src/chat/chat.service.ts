@@ -60,13 +60,15 @@ export class ChatService {
     });
   }
 
-  async createMessage(user: User, createMessageDto: CreateMessageDto) {
+  async createMessage(user: User | null, createMessageDto: CreateMessageDto) {
     const { content, conversationId } = createMessageDto;
     let conversation: Conversation;
 
     if (conversationId) {
       conversation = await this.prisma.conversation.findFirst({
-        where: { id: conversationId, userId: user.id },
+        where: user
+          ? { id: conversationId, userId: user.id }
+          : { id: conversationId },
       });
       if (!conversation) {
         throw new ForbiddenException(
@@ -74,15 +76,18 @@ export class ChatService {
         );
       }
     } else {
+      // Nếu có user thì truyền userId, nếu không thì KHÔNG truyền userId
+      const conversationData: any = {
+        title: content.substring(0, 100),
+      };
+      if (user && user.id) {
+        conversationData.userId = user.id;
+      }
       conversation = await this.prisma.conversation.create({
-        data: {
-          userId: user.id,
-          title: content.substring(0, 100),
-        },
+        data: conversationData,
       });
     }
 
-    // Lưu tin nhắn của người dùng
     await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -116,13 +121,11 @@ export class ChatService {
       },
     });
 
-    // Cập nhật thời gian cho cuộc trò chuyện
     const updatedConversation = await this.prisma.conversation.update({
       where: { id: conversation.id },
       data: { updatedAt: new Date() },
     });
 
-    // Lấy tất cả tin nhắn để trả về cho client
     const messages = await this.prisma.message.findMany({
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },

@@ -18,7 +18,6 @@ import { Message } from './entities/message.entity';
 @ApiBearerAuth()
 @ApiTags('Chat')
 @Controller('chat')
-@Auth() // Áp dụng Auth Guard cho tất cả các route trong controller này
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
@@ -26,13 +25,13 @@ export class ChatController {
   @ApiOperation({ summary: 'Gửi một tin nhắn mới' })
   @ApiResponse({ status: 201, description: 'Tin nhắn AI trả về.', type: Message })
   createMessage(
-    @GetUser() user: User,
     @Body() createMessageDto: CreateMessageDto,
   ) {
-    return this.chatService.createMessage(user, createMessageDto);
+    return this.chatService.createMessage(null, createMessageDto);
   }
 
   @Get('conversations')
+  @Auth()
   @ApiOperation({ summary: 'Lấy danh sách các cuộc trò chuyện' })
   @ApiResponse({ status: 200, description: 'Thành công', type: [Conversation] })
   getConversations(@GetUser() user: User) {
@@ -40,6 +39,7 @@ export class ChatController {
   }
 
   @Get('conversations/:id')
+  @Auth()
   @ApiOperation({ summary: 'Lấy tin nhắn của một cuộc trò chuyện' })
   @ApiResponse({ status: 200, description: 'Thành công', type: [Message] })
   getMessagesByConversation(
@@ -50,6 +50,7 @@ export class ChatController {
   }
 
   @Delete('conversations/:id')
+  @Auth()
   @ApiOperation({ summary: 'Xóa một cuộc trò chuyện' })
   @ApiResponse({ status: 200, description: 'Xóa thành công' })
   deleteConversation(
@@ -60,6 +61,7 @@ export class ChatController {
   }
 
   @Delete('messages/:id')
+  @Auth()
   @ApiOperation({ summary: 'Xóa một tin nhắn' })
   @ApiResponse({ status: 200, description: 'Xóa thành công' })
   deleteMessage(
@@ -70,6 +72,7 @@ export class ChatController {
   }
 
   @Delete('conversations')
+  @Auth()
   @ApiOperation({ summary: 'Xóa tất cả cuộc trò chuyện của user' })
   @ApiResponse({ status: 200, description: 'Xóa thành công' })
   deleteAllConversations(@GetUser() user: User) {
