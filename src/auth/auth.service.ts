@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger  } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-
 import * as bcrypt from 'bcryptjs';
-
+import { nanoid } from 'nanoid';
+import { TokenType } from '@prisma/client';
+import ms from 'ms'; 
 import { RegisterUserDto } from './dto/register-user.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -52,11 +53,12 @@ export class AuthService {
         }
       });
 
+      const refreshToken = await this.generateAndStoreRefreshToken(newuser.id);
+
       return {
         user: newuser,
-        token: this.getJwtToken({
-          id: newuser.id,
-        })
+        token: this.getJwtToken({ id: newuser.id }),
+        refreshToken,
       };
       
     } catch (error) {
@@ -95,7 +97,6 @@ export class AuthService {
       throw new BadRequestException('Wrong credentials');
     }
 
-    // Compare the provided password with the hashed password
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
@@ -105,11 +106,12 @@ export class AuthService {
     delete user.password;
     
     this.logger.log(`POST: auth/login: Usuario aceptado: ${user.email}`);
+    const refreshToken = await this.generateAndStoreRefreshToken(user.id);
+
     return {
       user,
-      token: this.getJwtToken({
-        id: user.id,
-      })
+      token: this.getJwtToken({ id: user.id }),
+      refreshToken,
     };
   }
 
@@ -125,10 +127,64 @@ export class AuthService {
 
 
   private getJwtToken(payload: JwtPayload) {
-
     const token = this.jwtService.sign(payload);
     return token;
 
+  }
+
+  async logout(userId: string, refreshToken: string) {
+    await this.prisma.token.deleteMany({
+      where: {
+        userId,
+        token: refreshToken,
+        type: TokenType.REFRESH_TOKEN,
+      },
+    });
+  }
+
+  async refreshTokenByToken(refreshToken: string) {
+  const tokenRecord = await this.prisma.token.findUnique({
+    where: { token: refreshToken },
+    include: { user: true },
+  });
+
+  if (
+    !tokenRecord ||
+    tokenRecord.type !== TokenType.REFRESH_TOKEN ||
+    tokenRecord.expiresAt < new Date()
+  ) {
+    throw new BadRequestException('Invalid or expired refresh token');
+  }
+
+  await this.prisma.token.delete({
+    where: { token: refreshToken },
+  });
+
+
+  const newRefreshToken = await this.generateAndStoreRefreshToken(tokenRecord.userId);
+
+  return {
+    user: tokenRecord.user,
+    token: this.getJwtToken({ id: tokenRecord.user.id }),
+    refreshToken: newRefreshToken,
+  };
+}
+
+  private async generateAndStoreRefreshToken(userId: string): Promise<string> {
+    const refreshToken = nanoid(); 
+    const expiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+    const expiresAt = new Date(Date.now() + ms(expiresIn));
+
+    await this.prisma.token.create({
+      data: {
+        userId,
+        token: refreshToken,
+        type: TokenType.REFRESH_TOKEN,
+        expiresAt,
+      },
+    });
+
+    return refreshToken;
   }
 
 

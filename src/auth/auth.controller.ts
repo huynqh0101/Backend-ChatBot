@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Res, HttpStatus } from '@nestjs/common';
+import { Request } from 'express';
 
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthService } from './auth.service';
@@ -52,5 +53,29 @@ export class AuthController {
     @GetUser() user: User
   ){
     return this.authService.refreshToken(user);
+  }
+
+  @Post('refresh-token')
+  @ApiOperation({
+    summary: 'REFRESH TOKEN',
+    description: 'Endpoint to refresh Access Token using Refresh Token.'
+  })
+  @ApiResponse({status: 200, description: 'Ok', type: LoginResponse})
+  @ApiResponse({status: 400, description: 'Invalid refresh token'})
+  async refreshTokenByBody(@Body('refreshToken') refreshToken: string) {
+    return this.authService.refreshTokenByToken(refreshToken);
+  }
+
+  @Post('logout')
+  @ApiOperation({
+    summary: 'LOGOUT',
+    description: 'Endpoint to logout and invalidate the refresh token.'
+  })
+  @ApiBearerAuth()
+  @ApiResponse({status: 200, description: 'Logged out'})
+  @Auth()
+  async logout(@GetUser() user: User, @Body('refreshToken') refreshToken: string) {
+    await this.authService.logout(user.id, refreshToken);
+    return { message: 'Logged out' };
   }
 }
