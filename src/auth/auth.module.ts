@@ -6,11 +6,12 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserRoleGuard } from './guards/user-role/user-role.guard';
 
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, UserRoleGuard],
   imports:[
     ConfigModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),

@@ -7,8 +7,17 @@ export const GetUser = createParamDecorator(
 
         const req = ctx.switchToHttp().getRequest();
         const user = req.user;
+        if (!user && (!data || data.required !== false)) {
+          throw new InternalServerErrorException('Missed user');
+        }
+        if (!user && data && data.required === false) {
+          return null;
+        }
 
-        if (!user) throw new InternalServerErrorException('Missed user');
+        if (data && typeof data === 'object' && !isArray(data)) {
+          // Trường hợp truyền object như { required: false }
+          return user;
+        }
 
         if (data) {
             if (isArray(data)) {

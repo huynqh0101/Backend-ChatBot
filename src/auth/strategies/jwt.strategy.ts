@@ -6,8 +6,6 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { JwtPayload } from "../interfaces/jwt-payload.interface";
 
 import { PrismaService } from "src/prisma/prisma.service";
-import { User } from "src/user/entities/user.entity";
-
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -23,28 +21,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         });
     }
 
-    async validate(payload: JwtPayload): Promise<User> {
-
+    async validate(payload: JwtPayload) {
         const { id } = payload;
-
-        try {
-            const user = await this.prisma.user.findUniqueOrThrow({
-                where: {id},
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    image: true,
-                    role: true,
-                    createdAt: true
-                }
-            });
-            return user;
-        } catch (error) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: id },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+                role: true,
+                createdAt: true
+            }
+        });
+        
+        console.log('User found:', user ? `${user.email} (ID: ${user.id})` : 'null');
+        
+        if (!user) {
             throw new UnauthorizedException('Invalid token');
         }
         
-        
+        return user;
     }
 
 

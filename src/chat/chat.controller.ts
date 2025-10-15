@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -14,6 +15,7 @@ import { Auth, GetUser } from 'src/auth/decorators';
 import { User } from 'src/user/entities/user.entity';
 import { Conversation } from './entities/conversation.entity';
 import { Message } from './entities/message.entity';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt.guard';
 
 @ApiBearerAuth()
 @ApiTags('Chat')
@@ -22,12 +24,17 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post('message')
+  @UseGuards(OptionalJwtAuthGuard) 
   @ApiOperation({ summary: 'Gửi một tin nhắn mới' })
   @ApiResponse({ status: 201, description: 'Tin nhắn AI trả về.', type: Message })
   createMessage(
     @Body() createMessageDto: CreateMessageDto,
+    @GetUser({ required: false }) user?: User,
   ) {
-    return this.chatService.createMessage(null, createMessageDto);
+    console.log('=== CONTROLLER DEBUG ===');
+    console.log('User from decorator:', user ? `${user.email} (ID: ${user.id})` : 'null');
+    
+    return this.chatService.createMessage(user || null, createMessageDto);
   }
 
   @Get('conversations')
