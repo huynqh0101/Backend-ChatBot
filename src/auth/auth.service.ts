@@ -143,32 +143,34 @@ export class AuthService {
   }
 
   async refreshTokenByToken(refreshToken: string) {
-  const tokenRecord = await this.prisma.token.findUnique({
-    where: { token: refreshToken },
-    include: { user: true },
-  });
+    const tokenRecord = await this.prisma.token.findUnique({
+      where: { token: refreshToken },
+      include: { user: true },
+    });
 
-  if (
-    !tokenRecord ||
-    tokenRecord.type !== TokenType.REFRESH_TOKEN ||
-    tokenRecord.expiresAt < new Date()
-  ) {
-    throw new BadRequestException('Invalid or expired refresh token');
+    if (
+      !tokenRecord ||
+      tokenRecord.type !== TokenType.REFRESH_TOKEN ||
+      tokenRecord.expiresAt < new Date()
+    ) {
+      throw new BadRequestException('Invalid or expired refresh token');
+    }
+
+    await this.prisma.token.deleteMany({
+      where: { 
+        token: refreshToken,
+        type: TokenType.REFRESH_TOKEN 
+      },
+    });
+
+    const newRefreshToken = await this.generateAndStoreRefreshToken(tokenRecord.userId);
+
+    return {
+      user: tokenRecord.user,
+      token: this.getJwtToken({ id: tokenRecord.user.id }),
+      refreshToken: newRefreshToken,
+    };
   }
-
-  await this.prisma.token.delete({
-    where: { token: refreshToken },
-  });
-
-
-  const newRefreshToken = await this.generateAndStoreRefreshToken(tokenRecord.userId);
-
-  return {
-    user: tokenRecord.user,
-    token: this.getJwtToken({ id: tokenRecord.user.id }),
-    refreshToken: newRefreshToken,
-  };
-}
 
   private async generateAndStoreRefreshToken(userId: string): Promise<string> {
     const refreshToken = nanoid(); 
